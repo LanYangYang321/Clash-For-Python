@@ -5,7 +5,7 @@ import time
 
 def main():
     # 初始化实例（使用默认配置）
-    clash = Clash("config.yaml", show_output=True, controller='127.0.0.1:9093')
+    clash = Clash("../config.yaml", show_output=True, controller='127.0.0.1:9093')
 
     try:
         # 启动Clash
@@ -35,7 +35,7 @@ def main():
             raise RuntimeError("No available proxies")
 
         # 选择第一个代理
-        selected = available[0]
+        selected = available[3]
         print(f"Selecting proxy: {selected}")
         clash.switch_proxy(group_name, selected)
 
