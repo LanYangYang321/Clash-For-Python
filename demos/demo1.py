@@ -1,4 +1,4 @@
-from clashpy import Clash
+from clashlite import Clash
 import requests
 import time
 
@@ -8,7 +8,7 @@ def main():
 
     try:
         clash.start()
-        time.sleep(5)
+        time.sleep(2)
         # 设置全局参数
         clash.set_mode("global")
         clash.update_config({"mixed-port": 7893})

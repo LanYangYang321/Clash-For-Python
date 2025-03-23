@@ -1,4 +1,4 @@
-from clashpy import Clash
+from clashlite import Clash
 import requests
 import threading
 import time
@@ -9,8 +9,8 @@ class ClashInstance:
     def __init__(
             self,
             instance_id: int,
-            base_port: int = 7890,
-            base_api_port: int = 9090,
+            base_port: int = 8000,
+            base_api_port: int = 9080,
             initial_node_index: int = 0
     ):
         self.instance_id = instance_id
@@ -20,25 +20,24 @@ class ClashInstance:
         self.current_node_index = initial_node_index
 
         # 初始化Clash实例
+        controllerurl = f"127.0.0.1:{self.api_port}"
+        print(controllerurl)
         self.clash = Clash(
-            controller=f"http://127.0.0.1:{self.api_port}",
-            show_output=False
+            config_path="../config.yaml",
+            controller=controllerurl
         )
 
+        # 启动Clash核心
+        self.clash.start(wait=1)
+
         # 设置运行时配置
-        self.clash.update_config({
-            "mixed-port": self.port,
-            "external-controller": f"0.0.0.0:{self.api_port}",
-            "mode": "rule"
-        })
+        self.clash.update_config({"mixed-port": self.port, "mode": "global"})
 
         self.proxy_group = None
         self.nodes = []
 
     def start_instance(self):
         try:
-            # 启动Clash核心
-            self.clash.start(wait=3)
 
             # 获取第一个策略组
             groups = self.clash.get_groups()
@@ -61,7 +60,7 @@ class ClashInstance:
     def _switch_node(self, index: int):
         """切换节点并更新当前索引"""
         if index >= len(self.nodes):
-            index = 0  # 循环选择
+            index = 2  # 循环选择
 
         try:
             self.clash.set_proxy(self.proxy_group, index)
@@ -77,10 +76,12 @@ class ClashInstance:
         }
 
         try:
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0"}
             response = requests.get(
                 "https://api-ipv4.ip.sb/ip",
                 proxies=proxies,
-                timeout=10
+                headers=headers,
+                timeout=2
             )
             return response.text.strip()
         except Exception as e:
@@ -97,17 +98,22 @@ class ClashInstance:
             next_index = self.current_node_index + 1
             self._switch_node(next_index)
 
-            time.sleep(5)
 
 
 def main():
     # 创建5个实例，初始节点索引分别为0,5,10,15,20
     instances: List[ClashInstance] = [
         ClashInstance(0, initial_node_index=0),
-        ClashInstance(1, initial_node_index=5),
-        ClashInstance(2, initial_node_index=10),
-        ClashInstance(3, initial_node_index=15),
-        ClashInstance(4, initial_node_index=20),
+        ClashInstance(1, initial_node_index=3),
+        ClashInstance(2, initial_node_index=7),
+        ClashInstance(3, initial_node_index=10),
+        ClashInstance(4, initial_node_index=14),
+        ClashInstance(5, initial_node_index=18),
+        ClashInstance(6, initial_node_index=21),
+        ClashInstance(7, initial_node_index=24),
+        ClashInstance(8, initial_node_index=27),
+        ClashInstance(9, initial_node_index=30),
+        ClashInstance(10, initial_node_index=35)
     ]
 
     # 启动所有实例
@@ -117,7 +123,7 @@ def main():
         start_thread = threading.Thread(target=instance.start_instance)
         start_thread.start()
         threads.append(start_thread)
-        time.sleep(1)  # 错开启动时间
+        time.sleep(0.2)  # 错开启动时间
 
     # 等待所有实例启动完成
     time.sleep(5)

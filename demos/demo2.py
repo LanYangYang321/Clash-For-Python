@@ -1,4 +1,4 @@
-from clashpy import Clash
+from clashlite import Clash
 import requests
 import time
 
@@ -11,7 +11,6 @@ def main():
 
         # 设置全局参数
         clash.set_mode("global")
-        clash.set_external_controller("http://127.0.0.1:9093")
         clash.update_config({"mixed-port": 7893})
         # 获取并打印所有策略组
         groups = clash.get_groups()

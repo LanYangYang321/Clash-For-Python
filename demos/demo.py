@@ -1,4 +1,4 @@
-from clashpy import Clash
+from clashlite import Clash
 import requests
 import time
 

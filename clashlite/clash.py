@@ -1,5 +1,4 @@
 import os
-import re
 import subprocess
 import tempfile
 import time
@@ -70,7 +69,6 @@ class Clash:
 
         self.temp_config_path = temp_path
         print(f"Generated temporary config at: {temp_path}")
-
 
     def start(self, wait: int = 5):
         """启动Clash核心"""
@@ -149,7 +147,7 @@ class Clash:
             response.raise_for_status()
             return response.json() if response.content else {}
         except Exception as e:
-            raise RuntimeError(f"API请求失败: {str(e)}")
+            raise RuntimeError(f"API请求失败: {str(e)}, 请检查是否已经启动了clash核心")
 
     # 以下是API封装（示例实现关键API）
     def update_config(self, updates: Dict):
