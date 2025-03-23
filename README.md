@@ -1,4 +1,17 @@
 # Clash-for-python
+
+
+
+
+
+
+
+
+
+[![Bilibili](https://img.shields.io/badge/Bilibili-white?logo=bilibili)](https://space.bilibili.com/1084866085)
+[![YouTube](https://img.shields.io/badge/YouTube-red?logo=youtube)](https://www.youtube.com/@lyyontop)
+[![GitHub](https://img.shields.io/badge/GitHub-black?logo=github)](https://github.com/LanYangYang321)
+[![Project](https://img.shields.io/badge/Clashlite-latest-brightgreen)](https://github.com/LanYangYang321/Clash-For-Python)
 ## clashlite
 
 A Python library for managing Clash core instances with advanced configuration control.
