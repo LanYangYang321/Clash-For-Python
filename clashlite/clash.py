@@ -254,3 +254,7 @@ class Clash:
             node = nodes[node]
 
         return self._request("PUT", f"/proxies/{group}", json={"name": node})
+
+    def close_all_connections(self):
+        """清除所有连接"""
+        return self._request("DELETE", "/connections")
