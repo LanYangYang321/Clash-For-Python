@@ -9,28 +9,16 @@ from typing import Dict, List, Optional, Union
 
 
 class Clash:
-    """
-    Clash 内核 Python 控制类
-
-    Attributes:
-        exe_path (str): Clash 可执行文件路径
-        original_config_path (str): 原始配置文件路径
-        temp_config_path (str): 临时配置文件路径
-        controller (str): 控制接口地址
-        api_secret (str): API 密钥
-        show_output (bool): 是否显示Clash输出
-    """
-
     def __init__(self, config_path: Optional[str] = None,
                  exe_path: str = os.path.join(os.path.dirname(__file__), "clash-verge-core.exe"),
-                 controller: str = "http://127.0.0.1:9090",
-                 api_secret: Optional[str] = None,
-                 show_output: bool = False):
+                 controller: str = "127.0.0.1:9090",
+                 show_output: bool = False,
+                 mode: str = "rule"):
+
         self.exe_path = exe_path
         self.original_config_path = config_path
         self.temp_config_path = None  # type: Optional[str]
-        self.controller = controller.rstrip('/')
-        self.api_secret = api_secret
+        self.controller = controller
         self.show_output = show_output
         self.process = None  # type: Optional[subprocess.Popen]
         self._runtime_config = {}
@@ -39,6 +27,20 @@ class Clash:
         # 处理配置文件
         if self.original_config_path:
             self._prepare_config_file()
+
+    def __del__(self):
+        if self.process:
+            self.process.terminate()
+            self.process.wait()
+            self.process = None
+        if self.temp_config_path and self.temp_config_path != self.original_config_path:
+            try:
+                os.remove(self.temp_config_path)
+                print(f"Removed temporary config: {self.temp_config_path}")
+            except Exception as e:
+                print(f"清理临时文件失败: {str(e)}")
+            finally:
+                self.temp_config_path = None
 
     def _prepare_config_file(self):
         """通过文本替换方式处理配置文件"""
@@ -93,84 +95,11 @@ class Clash:
             self._cleanup_temp_file()
             raise RuntimeError(f"启动失败: {str(e)}")
 
-    def stop(self):
-        """停止Clash核心并清理临时文件"""
-        if self.process:
-            self.process.terminate()
-            self.process.wait()
-            self.process = None
-        self._cleanup_temp_file()
-
-    def _cleanup_temp_file(self):
-        """清理临时配置文件"""
-        if self.temp_config_path and self.temp_config_path != self.original_config_path:
-            try:
-                os.remove(self.temp_config_path)
-                print(f"Removed temporary config: {self.temp_config_path}")
-            except Exception as e:
-                print(f"清理临时文件失败: {str(e)}")
-            finally:
-                self.temp_config_path = None
-
-    def _sync_current_config(self):
-        """同步当前配置"""
-        try:
-            config = self.get_config()
-            # 更新实际生效的controller地址
-            if 'external-controller' in config:
-                effective_controller = config['external-controller']
-                self.controller = f"http://{effective_controller}"
-            # 同步API密钥
-            if 'secret' in config:
-                self.api_secret = config.get('secret', self.api_secret)
-        except Exception as e:
-            print(f"配置同步警告: {str(e)}")
-
-    def __del__(self):
-        """析构时确保清理"""
-        self.stop()
-
-    def _headers(self) -> Dict:
-        return {"Authorization": f"Bearer {self.api_secret}"} if self.api_secret else {}
-
-    def _request(self, method: str, endpoint: str, **kwargs):
-        """发送API请求"""
-        url = f"http://{self.controller}{endpoint}"
-        try:
-            response = requests.request(
-                method,
-                url,
-                headers=self._headers(),
-                timeout=10,
-                **kwargs
-            )
-            response.raise_for_status()
-            return response.json() if response.content else {}
-        except Exception as e:
-            raise RuntimeError(f"API请求失败: {str(e)}, 请检查是否已经启动了clash核心")
-
-    # 以下是API封装（示例实现关键API）
     def update_config(self, updates: Dict):
         """更新运行配置"""
         with self._lock:
             self._runtime_config.update(updates)
             return self._request("PATCH", "/configs", json=updates)
-
-    def get_proxies(self) -> Dict:
-        """获取所有代理"""
-        return self._request("GET", "/proxies")
-
-    def switch_proxy(self, group: str, proxy: str):
-        """切换代理"""
-        return self._request("PUT", f"/proxies/{group}", json={"name": proxy})
-
-    def get_config(self) -> Dict:
-        """获取当前配置"""
-        return self._request("GET", "/configs")
-
-    def set_runtime_config(self, updates: Dict):
-        """设置运行时配置（合并更新）"""
-        return self.update_config(updates)
 
     def get_delay(self,
                   target: str,
@@ -208,41 +137,26 @@ class Clash:
         return self.update_config({"mode": mode})
 
     def get_groups(self) -> List[str]:
-        """获取所有策略组名称列表"""
-        proxies = self._request("GET", "/proxies").get("proxies", {})
         return [
-            name for name, info in proxies.items()
+            name for name, info in requests.get(f"http://{self.controller}/proxies").json().get("proxies", {}).items()
             if info.get("type") in ["Selector", "URLTest", "Fallback", "LoadBalance"]
         ]
 
     def get_nodes(self, group: Union[str, int]) -> List[str]:
-        """
-        获取策略组内的所有节点名称
-
-        Args:
-            group: 策略组名称或通过get_groups()获取的索引位置
-        """
         # 处理数字索引输入
         if isinstance(group, int):
             groups = self.get_groups()
             group = groups[group]
 
         try:
-            info = self._request("GET", f"/proxies/{group}")
-            return info.get("all", [])
+            return requests.get(f"http://{self.controller}/proxies/{group}").json().get("all", [])
         except:
             return []
 
     def set_proxy(self,
                   group: Union[str, int],
                   node: Union[str, int]):
-        """
-        设置策略组使用指定节点
 
-        Args:
-            group: 策略组名称或get_groups()返回的索引
-            node: 节点名称或get_nodes()返回的索引
-        """
         # 处理数字索引输入
         if isinstance(group, int):
             groups = self.get_groups()
@@ -253,8 +167,9 @@ class Clash:
             nodes = self.get_nodes(group)
             node = nodes[node]
 
-        return self._request("PUT", f"/proxies/{group}", json={"name": node})
+        return requests.put(f"http://{self.controller}/proxies/{group}", json={"name": node})
 
     def close_all_connections(self):
         """清除所有连接"""
+        return requests.delete(f"{self.controller}")
         return self._request("DELETE", "/connections")
